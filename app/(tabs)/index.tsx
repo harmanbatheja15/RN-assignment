@@ -1,59 +1,127 @@
-import { Image, Platform } from 'react-native';
-
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import React, { useState, useEffect } from 'react';
+import {
+	View,
+	Text,
+	ActivityIndicator,
+	FlatList,
+	Platform,
+	StatusBar as RNStatusBar,
+} from 'react-native';
+import axios from 'axios';
+import Card from '@/components/Card';
+import { Job } from '@/types';
 
 export default function HomeScreen() {
-	return (
-		<ParallaxScrollView
-			headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-			headerImage={
-				<Image
-					source={require('@/assets/images/partial-react-logo.png')}
-					className='h-[178px] w-[290px] absolute bottom-0 left-0'
-				/>
+	const statusBarHeight =
+		Platform.OS === 'android' ? RNStatusBar.currentHeight : 0;
+
+	const [isLoading, setIsLoading] = useState<boolean>(false);
+	const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+	const [isError, setIsError] = useState<boolean>(false);
+	const [data, setData] = useState<Job[]>([]);
+	const [page, setPage] = useState<number>(1);
+	const [hasMore, setHasMore] = useState<boolean>(true);
+
+	const fetchData = async (
+		pageNumber: number,
+		isLoadingMoreData: boolean = false
+	) => {
+		if (isLoadingMoreData) {
+			setIsLoadingMore(true);
+		} else {
+			setIsLoading(true);
+		}
+		setIsError(false);
+
+		try {
+			const response = await axios.get<{ results: Job[] }>(
+				`https://testapi.getlokalapp.com/common/jobs?page=${pageNumber}`
+			);
+			if (response.data.results.length === 0) {
+				setHasMore(false);
+			} else {
+				setData((prevData) =>
+					isLoadingMoreData
+						? [...prevData, ...response.data.results]
+						: response.data.results
+				);
 			}
+		} catch (error) {
+			setIsError(true);
+			console.error('Error fetching data: ', error);
+		} finally {
+			setIsLoading(false);
+			setIsLoadingMore(false);
+		}
+	};
+
+	useEffect(() => {
+		fetchData(1);
+	}, []);
+
+	const loadMore = () => {
+		if (!isLoadingMore && !isLoading && hasMore) {
+			const nextPage = page + 1;
+			setPage(nextPage);
+			fetchData(nextPage, true);
+		}
+	};
+
+	const renderItem = ({ item }: { item: Job }) => (
+		<Card
+			id={item?.id}
+			company_name={item?.company_name || 'Company Not specified'}
+			title={item?.title || 'Job title not specified'}
+			location={item?.primary_details?.Place || 'Remote'}
+			salary={item?.primary_details?.Salary || 'Not specified'}
+			phone={item?.whatsapp_no || 'Not specified'}
+			image={item?.creatives?.[0]?.thumb_url}
+		/>
+	);
+
+	const renderFooter = () => {
+		if (!isLoadingMore) return null;
+		return (
+			<View className='py-4'>
+				<ActivityIndicator size='large' color='#ffffff' />
+			</View>
+		);
+	};
+
+	if (isLoading) {
+		return (
+			<View className='flex-1 bg-black justify-center items-center'>
+				<ActivityIndicator size='large' color='#ffffff' />
+			</View>
+		);
+	}
+
+	if (isError) {
+		return (
+			<View className='flex-1 bg-black justify-center items-center'>
+				<Text className='text-2xl text-white'>
+					Error fetching data...
+				</Text>
+			</View>
+		);
+	}
+
+	return (
+		<View
+			className='flex-1 bg-black'
+			style={{ paddingTop: statusBarHeight }}
 		>
-			<ThemedView className='flex-row items-center gap-2'>
-				<ThemedText type='title'>Welcome!</ThemedText>
-				<HelloWave />
-			</ThemedView>
-			<ThemedView className='gap-2 mb-2'>
-				<ThemedText type='subtitle'>Step 1: Try it</ThemedText>
-				<ThemedText>
-					Edit{' '}
-					<ThemedText type='defaultSemiBold'>app/(tabs)/index.tsx</ThemedText>{' '}
-					to see changes. Press{' '}
-					<ThemedText type='defaultSemiBold'>
-						{Platform.select({
-							ios: 'cmd + d',
-							android: 'cmd + m',
-							web: 'F12',
-						})}
-					</ThemedText>{' '}
-					to open developer tools.
-				</ThemedText>
-			</ThemedView>
-			<ThemedView className='gap-2 mb-2'>
-				<ThemedText type='subtitle'>Step 2: Explore</ThemedText>
-				<ThemedText>
-					Tap the Explore tab to learn more about what's included in this
-					starter app.
-				</ThemedText>
-			</ThemedView>
-			<ThemedView className='gap-2 mb-2'>
-				<ThemedText type='subtitle'>Step 3: Get a fresh start</ThemedText>
-				<ThemedText>
-					When you're ready, run{' '}
-					<ThemedText type='defaultSemiBold'>npm run reset-project</ThemedText>{' '}
-					to get a fresh <ThemedText type='defaultSemiBold'>app</ThemedText>{' '}
-					directory. This will move the current{' '}
-					<ThemedText type='defaultSemiBold'>app</ThemedText> to{' '}
-					<ThemedText type='defaultSemiBold'>app-example</ThemedText>.
-				</ThemedText>
-			</ThemedView>
-		</ParallaxScrollView>
+			<FlatList
+				data={data}
+				renderItem={renderItem}
+				keyExtractor={(_, index) => index.toString()}
+				onEndReached={loadMore}
+				onEndReachedThreshold={0.8}
+				ListFooterComponent={renderFooter}
+				showsVerticalScrollIndicator={false}
+				ItemSeparatorComponent={() => <View className='h-4 w-full' />}
+				contentContainerClassName='p-4'
+			/>
+		</View>
 	);
 }

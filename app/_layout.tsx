@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import {
 	DarkTheme,
 	DefaultTheme,
@@ -6,12 +7,12 @@ import {
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
 import 'react-native-reanimated';
 import '../global.css';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { Platform, SafeAreaView, StatusBar as RNStatusBar } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -33,12 +34,24 @@ export default function RootLayout() {
 	}
 
 	return (
-		<ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-			<Stack>
-				<Stack.Screen name='(tabs)' options={{ headerShown: false }} />
-				<Stack.Screen name='+not-found' />
-			</Stack>
-			<StatusBar style='auto' backgroundColor='black' />
+		<ThemeProvider
+			value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}
+		>
+			<SafeAreaView
+				className='flex-1'
+				style={{
+					paddingBottom: Platform.OS === 'ios' ? 60 : 0,
+				}}
+			>
+				<Stack>
+					<Stack.Screen
+						name='(tabs)'
+						options={{ headerShown: false }}
+					/>
+					<Stack.Screen name='+not-found' />
+				</Stack>
+			</SafeAreaView>
+			<StatusBar style={'light'} backgroundColor='#000' />
 		</ThemeProvider>
 	);
 }
